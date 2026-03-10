@@ -42,7 +42,7 @@ const resourceServer = new x402ResourceServer(facilitatorClient)
 const contentVault = new Map();
 // Seed with ID 1 for backwards compatibility with existing frontend implementation
 contentVault.set("1", {
-  text: "This is the premium email text unlocked by your 1.00 USDC micro-payment via the x402 protocol. Welcome to the future of monetization!",
+  text: `<img src="/images/penguin.png" alt="Emperor Penguin" class="w-full h-auto rounded-3xl my-6 border border-white/10" /><p class="mb-4 text-gray-300">The breeding cycle begins in the dark, freezing months of March and April when the sea ice is thick enough to support their massive colonies. After laying a single egg, the female transfers it carefully to the male's brood pouch, where he will incubate it for 65 excruciating days without eating.</p><p class="mb-4 text-gray-300">To survive the relentless katabatic winds, the males form massive, constantly shifting huddles. The temperature inside the center of these huddles can reach up to 37 °C, a stark contrast to the freezing ambient air. The constant rotation ensures that no single bird remains on the frigid exterior for too long.</p><p class="text-gray-300">Once the chicks hatch, the females return with bellies full of fish to feed the hungry newborns. The survival of the colony hinges entirely on this delicate, cooperative dance of endurance.</p>`,
   price: "1.00"
 });
 
