@@ -10,6 +10,8 @@ export default function CreateDashboard() {
   const [contentId, setContentId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+  const API_URL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!content.trim()) return
@@ -18,7 +20,7 @@ export default function CreateDashboard() {
     setError(null)
 
     try {
-      const res = await fetch('http://localhost:3001/api/content', {
+      const res = await fetch(`${API_URL}/api/content`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
