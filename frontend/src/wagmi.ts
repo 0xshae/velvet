@@ -8,7 +8,7 @@ export const config = createConfig({
   connectors: [
     coinbaseWallet({
       appName: 'Velvet Email Paywall',
-      preference: 'all',
+      preference: { options: 'all' },
     }),
   ],
   transports: {
