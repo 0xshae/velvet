@@ -1,184 +1,188 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAccount, useConnect, useDisconnect, useWriteContract, useSwitchChain } from 'wagmi'
-import { baseSepolia } from 'wagmi/chains'
-import { parseAbi } from 'viem'
+import { useState } from 'react'
+import Link from 'next/link'
 
-const USDC_ABI = parseAbi(['function transfer(address to, uint256 amount) returns (bool)'])
-
-export default function Home() {
-  const { address, isConnected, chainId } = useAccount()
-  const { connectors, connect, error: connectError } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { writeContractAsync } = useWriteContract()
-  const { switchChainAsync } = useSwitchChain()
-  
-  const [content, setContent] = useState<{title: string, text: string} | null>(null)
+export default function CreateDashboard() {
+  const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
+  const [contentId, setContentId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!content.trim()) return
 
-  const handleConnect = () => {
-    setError(null)
-    try {
-      const coinbaseConnector = connectors.find(c => c.id.toLowerCase().includes('coinbase') || c.name.toLowerCase().includes('coinbase'))
-      if (coinbaseConnector) {
-        connect({ connector: coinbaseConnector })
-      } else if (connectors.length > 0) {
-        connect({ connector: connectors[0] })
-      } else {
-        setError("No wallet connectors found. Please refresh or install a wallet.")
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to initiate connection.")
-    }
-  }
-
-  const fetchContent = async (txHash?: string, paymentReq?: any) => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      const headers: HeadersInit = {}
-      
-      // If we have a transaction hash, we append it to the payment signature header
-      if (txHash && paymentReq) {
-        // The x402 protocol schema for PaymentPayloadV2 expects:
-        // x402Version: 2, accepted: <PaymentRequirement>, payload: { transaction: ... }
-        const payload = {
-          x402Version: 2,
-          accepted: paymentReq,
-          payload: { transaction: txHash }
-        }
-        headers['PAYMENT-SIGNATURE'] = btoa(JSON.stringify(payload))
-      }
-      
-      const res = await fetch('http://localhost:3001/api/content/1', { 
-        headers,
-        mode: 'cors'
-      })
-      
-      if (res.status === 402) {
-        if (!isConnected) {
-          setError("Please connect your wallet first.")
-          setLoading(false)
-          return
-        }
-        
-        // Switch chain if needed
-        if (chainId !== baseSepolia.id) {
-          await switchChainAsync({ chainId: baseSepolia.id })
-        }
-        
-        const paymentRequiredB64 = res.headers.get('PAYMENT-REQUIRED')
-        if (!paymentRequiredB64) {
-          throw new Error("Missing PAYMENT-REQUIRED header")
-        }
-        
-        const paymentRequired = JSON.parse(atob(paymentRequiredB64))
-        const req = paymentRequired.accepts[0]
-        
-        // Execute the ERC20 transfer
-        const tx = await writeContractAsync({
-          address: req.asset, // The USDC token address
-          abi: USDC_ABI,
-          functionName: 'transfer',
-          args: [req.payTo, BigInt(req.amount)],
+      const res = await fetch('http://localhost:3001/api/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: content,
+          price: '1.00'
         })
-        
-        // Refetch with Tx Hash
-        await fetchContent(tx, req)
-        return
-      }
-      
+      })
+
       if (!res.ok) {
-        throw new Error(`Failed to fetch: ${res.statusText}`)
+        throw new Error('Failed to generate Velvet link')
       }
-      
+
       const data = await res.json()
-      setContent(data)
+      setContentId(data.contentId)
     } catch (err: any) {
-      setError(err.message || 'An error occurred')
+      setError(err.message || 'An error occurred while creating content.')
     } finally {
       setLoading(false)
     }
   }
 
+  const copyToClipboard = () => {
+    if (contentId) {
+      navigator.clipboard.writeText(`http://localhost:3000/unlock/${contentId}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center p-8">
-      <div className="w-full max-w-xl mx-auto space-y-8 bg-neutral-900/50 p-8 rounded-2xl border border-neutral-800 shadow-xl backdrop-blur-sm">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-            Velvet
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-500/30 font-sans">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#050505]/60 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 group">
+            <span className="font-bold text-xl tracking-tight">Velvet</span>
+            <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.8)] group-hover:shadow-[0_0_15px_rgba(37,99,235,1)] transition-shadow" />
+          </Link>
+          <div className="text-sm font-medium text-gray-300">Creator Dashboard</div>
+        </div>
+      </nav>
+
+      <main className="pt-32 pb-24 px-6 max-w-3xl mx-auto">
+        <header className="mb-12 text-center flex flex-col items-center">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tighter mb-4 leading-tight">
+            Draft your premium{" "}
+            <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-transparent bg-clip-text">insight.</span>
           </h1>
-          <p className="text-neutral-400">The seamless email paywall app using Coinbase x402</p>
-        </div>
+          <p className="text-lg text-gray-400 max-w-xl">
+            Create gated content. Unlocked instantly with Coinbase Smart Wallets.
+          </p>
+        </header>
 
-        <div className="flex flex-col items-center justify-center gap-4">
-          {!mounted ? (
-            <div className="h-12 w-32 bg-neutral-800 animate-pulse rounded-full"></div>
-          ) : !isConnected ? (
-            <div className="flex flex-col items-center">
-              <button
-                onClick={handleConnect}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 transition-colors rounded-full font-medium"
-              >
-                Connect Smart Wallet
-              </button>
-              {connectError && (
-                <p className="mt-4 text-red-400 text-sm bg-red-400/10 px-4 py-2 rounded-lg border border-red-400/20">
-                  {connectError.message}
-                </p>
-              )}
+        {!contentId ? (
+          <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in duration-700">
+            <div className="space-y-2">
+              <label htmlFor="content" className="block text-sm font-medium tracking-wide text-gray-400 ml-1">
+                Premium Email Content
+              </label>
+              <textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write your exclusive alpha here..."
+                className="w-full h-80 bg-white/[0.02] text-white border border-white/10 rounded-3xl p-6 text-lg focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.04] transition-colors resize-none placeholder:text-gray-600 backdrop-blur-sm"
+                required
+              />
             </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-mono text-neutral-400 bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </span>
-              <button
-                onClick={() => disconnect()}
-                className="text-sm text-neutral-500 hover:text-white transition-colors"
-              >
-                Disconnect
-              </button>
-            </div>
-          )}
-        </div>
 
-        {content ? (
-          <div className="bg-neutral-800/50 p-6 rounded-xl border border-emerald-500/20 space-y-4 mt-8">
-            <div className="flex items-center gap-2 text-emerald-400 mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-sm font-semibold uppercase tracking-wider">Unlocked</span>
+            <div className="space-y-2">
+              <label htmlFor="price" className="block text-sm font-medium tracking-wide text-gray-400 ml-1">
+                Price (USDC on Base)
+              </label>
+              <input
+                type="text"
+                id="price"
+                value="1.00 USDC"
+                disabled
+                className="w-full bg-white/[0.01] text-gray-500 border border-white/5 rounded-2xl p-4 text-center text-lg cursor-not-allowed focus:outline-none"
+              />
             </div>
-            <h2 className="text-2xl font-bold">{content.title}</h2>
-            <p className="text-neutral-300 leading-relaxed">{content.text}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            <button
-              onClick={() => fetchContent()}
-              disabled={loading}
-              className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_30px_-5px_rgba(16,185,129,0.4)]"
-            >
-              {loading ? 'Processing...' : 'Read Premium Content for 1.00 USDC'}
-            </button>
+
             {error && (
-              <p className="mt-4 text-red-400 text-sm bg-red-400/10 px-4 py-2 rounded-lg border border-red-400/20">
+              <div className="bg-red-500/10 text-red-400 p-4 rounded-2xl border border-red-500/20 text-sm font-medium text-center">
                 {error}
-              </p>
+              </div>
             )}
+
+            <button
+              type="submit"
+              disabled={loading || !content.trim()}
+              className="w-full group relative inline-flex items-center justify-center gap-2 px-8 py-5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:shadow-[0_0_40px_rgba(37,99,235,0.5)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  'Generate Velvet Link'
+                )}
+              </span>
+            </button>
+          </form>
+        ) : (
+          <div className="rounded-3xl bg-white/[0.02] border border-white/10 backdrop-blur-sm p-8 sm:p-12 text-center space-y-8 animate-in zoom-in-95 duration-500 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+            
+            <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+              <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            
+            <div className="space-y-2 relative z-10">
+              <h2 className="text-3xl font-bold tracking-tight">Content Locked & Ready</h2>
+              <p className="text-gray-400">Share this link to instantly monetize your insight.</p>
+            </div>
+
+            <div className="bg-[#050505] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 relative z-10">
+              <div className="w-full text-gray-300 text-sm sm:text-base font-mono truncate px-2 select-all text-left">
+                http://localhost:3000/unlock/{contentId}
+              </div>
+              <button
+                onClick={copyToClipboard}
+                className="w-full sm:w-auto shrink-0 bg-white text-black hover:bg-gray-200 font-semibold text-sm py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    Copy Link
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="pt-4 relative z-10">
+              <button
+                onClick={() => {
+                  setContentId(null)
+                  setContent('')
+                }}
+                className="text-sm font-medium text-gray-500 hover:text-white transition-colors"
+              >
+                Create another link →
+              </button>
+            </div>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
